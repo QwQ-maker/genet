@@ -50,11 +50,12 @@ def generate_training_data(config):
     log = setup_logger(name='DataGenerator', log_file='data_generation.log')
     log.info("Starting data generation process with self-sufficient method...")
 
-    # 1. 定义网络环境的参数空间
-    bandwidths = [20, 50, 100, 150]
-    delays = [20, 50, 100]
-    loss_rates = [0, 0.001, 0.01]
-    background_traffic_ratios = [0.1, 0.3, 0.5]  # 背景流量占总带宽的比例
+    # 1. 定义网络环境的参数空间 (从config文件读取)
+    gen_config = config.get('data_generation_params', {})
+    bandwidths = gen_config.get('bandwidths', [50, 100])
+    delays = gen_config.get('delays', [20, 50])
+    loss_rates = gen_config.get('loss_rates', [0, 0.01])
+    background_traffic_ratios = gen_config.get('background_traffic_ratios', [0.1, 0.3])
 
     network_scenarios = list(product(bandwidths, delays, loss_rates, background_traffic_ratios))
     log.info(f"Generated {len(network_scenarios)} network scenarios to run.")
