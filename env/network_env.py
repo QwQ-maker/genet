@@ -3,20 +3,35 @@
 
 import subprocess
 import time
-from core.utility import calculate_utility
+import re
+import pandas as pd
 import numpy as np
-
+# --- 导入我们自己的模块 ---
+from core.utility import calculate_utility
 
 class NetworkEnvironment:
     """
-    封装所有与Mahimahi仿真环境交互的逻辑。
-    这是Genet算法与“外部世界”沟通的唯一桥梁。
+    [总体流程位置]: 连接所有上层算法逻辑与底层Mahimahi仿真的“驱动层”
+
+    职责:
+    1.  根据配置构建并启动Mahimahi链路。
+    2.  执行上层算法指定的发送速率 (通过iperf)。
+    3.  采集并解析仿真结果 (iperf日志, tcpdump等)。
+    4.  向上层返回结构化的网络反馈。
     """
 
     def __init__(self, config):
+        """
+        [总体流程位置]: 实验初始化阶段
+
+        职责:
+        1.  保存配置。
+        2.  准备iperf服务器等仿真前置条件。
+        """
         self.config = config
+        self.utility_params = config.get('utility_params', {})
+        self.last_feedback = {}  # 用于记录上一个周期的反馈
         print("NetworkEnvironment initialized.")
-        # 在这里可以进行一些初始化设置，比如设定iperf服务器等
 
     def run_and_get_feedback(self, component, duration_sec=0.5):
         """
