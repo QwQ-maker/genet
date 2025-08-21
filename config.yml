@@ -1,0 +1,53 @@
+# ===================================================================
+# Genet: A Hybrid Congestion Control Framework
+# Configuration File
+# ===================================================================
+
+# -------------------------------------------------------------------
+# 仿真与实验的通用参数
+# -------------------------------------------------------------------
+simulation_params:
+  duration_sec: 60       # 单次实验的持续时间（秒）
+  repetitions: 5           # 每个场景重复实验的次数
+
+# -------------------------------------------------------------------
+# Genet 核心框架参数
+# -------------------------------------------------------------------
+genet_params:
+  # --- 自适应任期 (Adaptive Tenure) ---
+  n_min: 3                 # 主组件的最短任期 (RTTs)
+  n_max: 20                # 主组件的最长任期 (RTTs)
+
+  # --- 置信度 (Confidence Score) ---
+  eta_initial: 0.5         # 所有组件的初始置信度分数
+  eta_update_alpha: 0.1    # 置信度EWMA更新的学习率/遗忘因子
+  eta_perf_score_theta: 0.05 # 表现比率y的容忍度θ
+
+# -------------------------------------------------------------------
+# 效用函数 (Utility Function) 参数 (继承自Anole)
+# -------------------------------------------------------------------
+utility_params:
+  alpha: 1.0               # 吞吐量收益的缩放系数
+  tau: 0.9                 # 吞吐量收益的指数 (实现边际效应递减)
+  beta: 900                # 对延迟增长趋势的惩罚权重
+  lambda: 11               # 对已形成的排队长度的惩罚权重
+  mu: 0.2                  # 排队容忍度 (RTT/RTT_min > 1 + mu 时触发惩罚)
+
+# -------------------------------------------------------------------
+# 智能引擎 (Intelligent Engines) 参数
+# -------------------------------------------------------------------
+engine_params:
+  # --- 动态扶持协议 (Dynamic Support Protocol) ---
+  support_protocol:
+    crisis_avg_window: 10      # 用于计算冠军近期平均表现的滑动窗口大小 (个周期)
+    crisis_decline_theta: 0.5  # 相对性能衰退的系数θ (当前表现 < θ * 平均表现)
+    support_bonus_beta: 0.2    # 扶持性奖励的权重因子
+    support_activation_k: 0.8  # 扶持奖励的激活系数k (表现比率ρ > k)
+
+  # --- 学习式推断引擎 (Learned Inference Engine) ---
+  inference_engine:
+    # --- 双维智能触发器 (Dual-Dimension Trigger) ---
+    trigger_benchmark_alpha: 0.05 # 自适应历史标杆EWMA更新的学习率
+    trigger_activation_k: 0.85    # 相对表现检查的激活系数k
+    trigger_stagnation_rates_std_dev: 0.1  # “意见趋同”的速率标准差阈值
+    trigger_stagnation_throughput_ratio: 0.7 # “潜力巨大”的历史最高吞吐量比例阈值
