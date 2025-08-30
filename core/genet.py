@@ -1,5 +1,6 @@
 ## 模型核心
 # genet_project/core/genet.py
+import numpy as np
 
 from .components import CubicComponent, SageComponent
 from .utility import calculate_utility
@@ -97,7 +98,8 @@ class Genet:
             execution_rate = primary_component.get_suggested_rate({})  # 简化
 
         # c. 绩效考核：更新所有组件的置信度
-        self._update_all_confidence_scores(performance_report)
+        secondary_components = [c for c in self.components if c != primary_component]
+        self._update_secondary_confidence_scores(performance_report, secondary_components)
 
         # d. 授权任期：根据胜出者的最新置信度，计算其任期
         execution_duration = self._calculate_adaptive_tenure(primary_component)
@@ -107,8 +109,11 @@ class Genet:
     def _execution_stage(self, primary_component, execution_rate, execution_duration):
         print(f"--- [执行阶段] 开始，主组件: {primary_component.name}, 任期: {execution_duration} RTTs ---")
 
+        tenure_utilities = [] # <--- 新增：用于记录整个任期的表现
+
         for rtt_count in range(execution_duration):
             current_utility = self.network_env.execute_rate_for_one_rtt(execution_rate, primary_component)
+            tenure_utilities.append(current_utility) # <--- 新增：记录每个RTT的表现
 
             is_in_crisis = self.support_protocol.check_crisis(primary_component, current_utility)
 
@@ -116,8 +121,9 @@ class Genet:
                 secondary_components = [c for c in self.components if c != primary_component]
                 # 注意：将推断引擎作为参数传入，以支持虚拟评估
                 self.support_protocol.apply_support(primary_component, secondary_components, self.inference_engine)
-
+        self._post_tenure_review(primary_component, tenure_utilities)
         print(f"执行阶段完成。")
+
 
     # --- 辅助函数 ---
     def _select_primary_component(self, performance_report):
@@ -140,3 +146,40 @@ class Genet:
         duration_N = self.N_min + (eta_primary ** 2) * (self.N_max - self.N_min)
         print(f"主组件信誉为 {eta_primary:.3f}, 获得任期: {int(duration_N)} RTTs")
         return int(duration_N)
+
+    def _update_secondary_confidence_scores(self, performance_report, secondary_components):
+        """
+        [新功能] 只根据“评估阶段”的表现，更新次组件的置信度。
+        """
+        U_max = max(v[0] for v in performance_report.values()) if performance_report else 1
+
+        for component in secondary_components:
+            utility = performance_report[component.name][0]
+            score = utility / U_max if U_max > 0 else 0.0
+            score = max(0, score)
+
+            # 使用EWMA公式更新
+            component.eta = (1 - self.alpha_ewma) * component.eta + self.alpha_ewma * score
+            print(f"  [绩效考核-次组件] {component.name} η 更新为: {component.eta:.3f}")
+
+
+    def _post_tenure_review(self, component, tenure_utilities):
+        """
+        [新功能] 对刚刚完成任期的主组件，进行一次基于其整个任期表现的绩效评估。
+        """
+        if not tenure_utilities:
+            return # 如果任期为0，不进行评估
+
+        # 1. 计算“任期总评”：整个任期内的平均效用值
+        avg_tenure_utility = np.mean(tenure_utilities)
+        print(f"--- [任期后评估] {component.name} 的任期平均效用为: {avg_tenure_utility:.2f} ---")
+
+        # 2. 计算归一化的表现分 (与自适应历史标杆比较)
+        #    这里的 trigger_engine.adaptive_benchmark 就是我们需要的 U_adaptive_benchmark
+        benchmark = self.trigger_engine.adaptive_benchmark
+        score = avg_tenure_utility / benchmark if benchmark > 0 else 0.0
+        score = max(0, score)
+
+        # 3. 更新该组件的置信度分数
+        component.eta = (1 - self.alpha_ewma) * component.eta + self.alpha_ewma * score
+        print(f"  [绩效考核-主组件] {component.name} η 更新为: {component.eta:.3f}")

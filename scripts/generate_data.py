@@ -125,5 +125,13 @@ def generate_training_data(config):
 if __name__ == '__main__':
     # ... (加载配置文件的代码保持不变) ...
     config_path = os.path.join(project_root, 'config.yml')
-    # ...
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"FATAL: Configuration file not found at {config_path}")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"FATAL: Error parsing YAML file: {e}")
+        sys.exit(1)
     generate_training_data(config)
